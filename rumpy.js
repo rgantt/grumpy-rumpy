@@ -61,3 +61,8 @@ bot.on('newsong', function(data) {
 		bot.skip();
 	}
 });
+
+// always bop if someone else votes
+bot.on('update_votes', function(data) {
+    bot.bop();
+});
