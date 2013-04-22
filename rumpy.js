@@ -96,14 +96,14 @@ rumpy.on('update_votes', function (data) {
  * Helper functions
  */
 
-rumpyAtTable = function (djList) {
-    return listFromMap(djList).reduce(function (a, b) {
+rumpyAtTable = function (mapOfDJs) {
+    return listFromMap(mapOfDJs).reduce(function (a, b) {
         return a || (b.value == bot.userid);
     }, false);
 };
 
-numberOfDJs = function (djList) {
-    return listFromMap(djList).reduce(function (a, b) {
+numberOfDJs = function (mapOfDJs) {
+    return listFromMap(mapOfDJs).reduce(function (a, b) {
         return a + 1;
     }, 0);
 };
