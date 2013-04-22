@@ -1,82 +1,95 @@
 var TTBot = require('ttapi');
 
 // just grab these from ENV for now so we don't have credentials in source control
-var credentials = {
-    auth: process.env.TT_AUTHID,
-    user: process.env.TT_USERID,
-    room: process.env.TT_ROOMID
+var bot = {
+    authtoken: process.env.TT_AUTHID,
+    userid: process.env.TT_USERID,
+    roomid: process.env.TT_ROOMID
 };
 
-var bot = new TTBot(credentials.auth, credentials.user, credentials.room);
+var rumpy = new TTBot(bot.authtoken, bot.userid, bot.roomid);
 
 /**
  * If there's only 1 DJ at a table, rumpy will grab a table so that person can continue
  * listening. He skips his songs and gets down as soon as a second DJ steps up.
  */
 
-// hop on the table if there's only one DJ in the room and we enter it
-bot.on('roomChanged', function (room) {
-    // need to make sure rumpy has at least one song on his default playlist, otherwise TT blows up
-    bot.playlistAll(function (playlist) {
-        var stubSong = room.room.metadata.songlog[0]._id;
+rumpy.on('roomChanged', function (room) {
+    var numberOfDJs = room.room.metadata.djcount;
+    var lastPlayedSong = room.room.metadata.songlog[0]._id;
+
+    // rumpy needs at least one song on his default playlist, otherwise TT blows up
+    rumpy.playlistAll(function (playlist) {
         if (playlist.list.length == 0) {
-            bot.playlistAdd(stubSong);
+            console.log("Rumpy's playlist had no songs, so he stole the most recent one.");
+            rumpy.playlistAdd(lastPlayedSong);
         }
     });
 
-    if (room.room.metadata.djcount == 1) {
-        bot.addDj();
+    // hop on the table if there's only one DJ in the room and we enter it
+    if (numberOfDJs == 1) {
+        console.log("Rumpy's stepping up to help the DJ.");
+        rumpy.addDj();
     }
 });
 
-bot.on('rem_dj', function (data) {
-    if (data.user[0].userid == credentials.user) {
+rumpy.on('rem_dj', function (data) {
+    var removedDJ = data.user[0];
+
+    // rumpy don't care 'bout rumpy
+    if (removedDJ.userid == bot.userid) {
         return;
     }
 
-    console.log("A DJ has left the stage.");
+    console.log(removedDJ.name + " has left the stage.");
     if (rumpyAtTable(data.djs)) {
         console.log("Rumpy makes his exit gracefully.");
-        bot.remDj();
+        rumpy.remDj();
     } else if (numberOfDJs(data.djs) < 2) {
         console.log("Rumpy resolves to help the lone DJ.");
-        bot.addDj();
+        rumpy.addDj();
     }
 });
 
-bot.on('add_dj', function (data) {
-    if (data.user[0].userid == credentials.user) {
+rumpy.on('add_dj', function (data) {
+    var addedDJ = data.user[0];
+
+    // rumpy don't care 'bout rumpy
+    if (addedDJ.userid == bot.userid) {
         return;
     }
 
-    console.log("A DJ has entered the stage. Rumpy ponders the situation.");
+    console.log(addedDJ.name + " has entered the stage.");
     if (rumpyAtTable(data.djs) && numberOfDJs(data.djs) > 2) {
         console.log("It seems Rumpy's services are no longer needed.");
-        bot.remDj();
+        rumpy.remDj();
     } else if (!rumpyAtTable(data.djs) && numberOfDJs(data.djs) < 2) {
         console.log("Rumpy resolves to help the lone DJ.");
-        bot.addDj();
+        rumpy.addDj();
     }
 });
 
 // always skip rumpy's songs
-bot.on('newsong', function (data) {
+rumpy.on('newsong', function (data) {
+    var currentDJUserid = data.room.metadata.current_dj;
+    var numberOfDJs = data.room.metadata.djcount;
+
     // rumpy should never be the only DJ at a table
-    if (data.room.metadata.current_dj == credentials.user) {
-        if (data.room.metadata.djcount == 1) {
-            console.log("Rumpy removed himself from the fray.");
-            bot.remDj();
+    if (currentDJUserid == bot.userid) {
+        if (numberOfDJs == 1) {
+            console.log("Rumpy is too shy to be on stage alone.");
+            rumpy.remDj();
         } else {
             console.log("Rumpy skips his song; it wasn't very good, anyway.");
-            bot.skip();
+            rumpy.skip();
         }
     }
 });
 
 // always bop if someone else votes
-bot.on('update_votes', function (data) {
+rumpy.on('update_votes', function (data) {
     console.log("Rumpy shares the love.");
-    bot.bop();
+    rumpy.bop();
 });
 
 /**
@@ -84,19 +97,24 @@ bot.on('update_votes', function (data) {
  */
 
 rumpyAtTable = function (djList) {
-    var atTable = false;
-    for (dj in djList) {
-        if (djList[dj] == credentials.user) {
-            atTable = true;
-        }
-    }
-    return atTable;
+    return listFromMap(djList).reduce(function (a, b) {
+        return a || (b.value == bot.userid);
+    }, false);
 };
 
 numberOfDJs = function (djList) {
-    var count = 0;
-    for (dj in djList) {
-        count++;
+    return listFromMap(djList).reduce(function (a, b) {
+        return a + 1;
+    }, 0);
+};
+
+listFromMap = function (map) {
+    var list = [];
+    for (var key in map) {
+        list.push({
+            key: key,
+            value: map[key]
+        }); 
     }
-    return count;
+    return list;
 };
