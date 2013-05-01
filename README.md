@@ -7,9 +7,9 @@ Put Rumpy in a room and he'll allow a single DJ to play songs without having the
 
 ## Setup
 
-1. Install node.js
-2. Install 'ttapi' via npm
-3. Define $TT_AUTHID, $TT_USERID, and $TT_ROOMID in $ENV
+1. Install `node.js`
+2. Install `ttapi` via `npm`
+3. Define `$TT_AUTHID`, `$TT_USERID`, and `$TT_ROOMID` in `$ENV`
 4. `node rumpy.js`
 
 Now you're running a rumpy.
